@@ -1,5 +1,7 @@
-# mp4-to-gif
-mp4 to gif converter written in go
+# mp4-to-gif converter application
+This gui application converts mp4 files in to gif files, simple as that.
+It is written in Go and uses the Fyne GUI toolkit.
+
 
 
 ## Dependencies
@@ -21,7 +23,7 @@ go mod tidy
 go get fyne.io/fyne/v2@latest
 ```
 
-Package
+## Package
 ```bash
 go install fyne.io/fyne/v2/cmd/fyne@latest
 ```
