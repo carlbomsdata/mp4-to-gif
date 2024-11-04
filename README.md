@@ -4,6 +4,10 @@ It is written in Go and uses the Fyne GUI toolkit.
 
 
 
+https://github.com/user-attachments/assets/a842ccb0-f3d1-4245-950f-0b98651701d0
+
+
+
 ## Dependencies
 After cloning the repo, download and place ffmpeg executable inside the folder ffmpeg.
 https://www.ffmpeg.org/download.html
