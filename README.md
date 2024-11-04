@@ -20,7 +20,14 @@ go mod tidy
 ```bash
 go get fyne.io/fyne/v2@latest
 ```
-go: added fyne.io/fyne/v2 v2.5.2
 
-└─$ go version
-go version go1.23.2 darwin/arm64
+Package
+```bash
+go install fyne.io/fyne/v2/cmd/fyne@latest
+```
+```bash
+fyne package -os darwin -icon icon.png
+```
+```bash
+fyne package -os windows -icon icon.png
+```
