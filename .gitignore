@@ -1,0 +1,8 @@
+ffmpeg/
+
+ffmpeg_bindata_unix.go
+ffmpeg_bindata_windows.go
+
+*.mov
+*.mp4
+*.gif
