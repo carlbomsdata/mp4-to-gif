@@ -2,11 +2,7 @@
 This gui application converts mp4 files in to gif files, simple as that.
 It is written in Go and uses the Fyne GUI toolkit.
 
-
-
-https://github.com/user-attachments/assets/a842ccb0-f3d1-4245-950f-0b98651701d0
-
-
+![Skärminspelning 2024-11-04 kl  18 37 19](https://github.com/user-attachments/assets/d9602ff0-ae4b-4fb9-88a3-01c7c3d84907)
 
 ## Dependencies
 After cloning the repo, download and place ffmpeg executable inside the folder ffmpeg.
