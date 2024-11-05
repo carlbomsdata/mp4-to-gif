@@ -28,8 +28,11 @@ go get fyne.io/fyne/v2@latest
 go install fyne.io/fyne/v2/cmd/fyne@latest
 ```
 ```bash
-fyne package -os darwin -icon icon.png
+fyne package -os darwin -icon icon.png -output ./build/mp4-to-gif_darwin
 ```
 ```bash
-fyne package -os windows -icon icon.png
+fyne package -os windows -icon icon.png -output ./build/mp4-to-gif_windows.exe
+```
+```bash
+go build -o ./build/myapp
 ```
