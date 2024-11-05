@@ -18,6 +18,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2/theme"
 )
 
 //go:generate go-bindata -o ffmpeg_bindata.go ffmpeg/ffmpeg ffmpeg/ffmpeg.exe
@@ -96,12 +97,20 @@ func main() {
 	windowBackground.SetMinSize(fyne.NewSize(800,600))
 
 	contentBackground := canvas.NewRectangle(color.RGBA{255, 0, 0, 0})
-	contentBackground.SetMinSize(fyne.NewSize(600,230))
+	contentBackground.SetMinSize(fyne.NewSize(600,220))
 	contentBackground.StrokeColor = color.RGBA{128, 128, 128, 255}
 	contentBackground.StrokeWidth = 1
 	contentBackground.CornerRadius = 10
 
 	fileFilter := storage.NewExtensionFileFilter([]string{".mp4", ".mov"})
+
+	heading := canvas.NewText("MP4 to GIF Converter", theme.ForegroundColor())
+	heading.Alignment = fyne.TextAlignCenter
+	heading.TextStyle = fyne.TextStyle{Bold: true}
+	heading.TextSize = 24
+	
+	spacer := canvas.NewRectangle(theme.BackgroundColor())
+	spacer.SetMinSize(fyne.NewSize(0, 10))
 
 	fileLabel := widget.NewLabel("No file selected")
 	fileLabel.Alignment = fyne.TextAlignCenter
@@ -181,6 +190,8 @@ func main() {
 					layout.NewSpacer(), // Add a spacer to push the content down
 					container.NewPadded(
 						container.NewVBox(
+							heading,
+							spacer,
 							fileButton,
 							fileLabel,
 							convertButton,
