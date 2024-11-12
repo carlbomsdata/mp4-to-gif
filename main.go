@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
-
+	"time"
 	"image/color"
 	"path/filepath"
 	"strings"
@@ -20,8 +21,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"fyne.io/fyne/v2/theme"
 )
-
-//go:generate go-bindata -o ffmpeg_bindata.go ffmpeg/ffmpeg ffmpeg/ffmpeg.exe
 
 func extractFFmpeg() (string, error) {
     var data []byte
@@ -60,44 +59,44 @@ func extractFFmpeg() (string, error) {
     return tmpFile.Name(), nil
 }
 
-func convertMP4ToGIF(inputFile, outputFile string) error {
-    ffmpegPath, err := extractFFmpeg()
-    if err != nil {
-        return err
-    }
-    defer os.Remove(ffmpegPath)
+func convertMP4ToGIF(ctx context.Context, inputFile, outputFile string) error {
+	ffmpegPath, err := extractFFmpeg()
+	if err != nil {
+		return err
+	}
+	defer os.Remove(ffmpegPath)
 
-    palette := "palette.png"
-    filters := "fps=15,scale=640:-1:flags=lanczos"
+	palette := "palette.png"
+	filters := "fps=15,scale=640:-1:flags=lanczos"
 
-    // Generate the palette
-    cmd := exec.Command(ffmpegPath, "-i", inputFile, "-vf", filters+",palettegen=stats_mode=diff", "-y", palette)
-    if err := cmd.Run(); err != nil {
-        return err
-    }
+	// Generate the palette with cancellation check
+	cmd := exec.CommandContext(ctx, ffmpegPath, "-i", inputFile, "-vf", filters+",palettegen=stats_mode=diff", "-y", palette)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
 
-    // Use the palette to create the GIF
-    cmd = exec.Command(ffmpegPath, "-i", inputFile, "-i", palette, "-lavfi", filters+",paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle", "-y", outputFile)
-    if err := cmd.Run(); err != nil {
-        return err
-    }
+	// Use the palette to create the GIF with cancellation check
+	cmd = exec.CommandContext(ctx, ffmpegPath, "-i", inputFile, "-i", palette, "-lavfi", filters+",paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle", "-y", outputFile)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
 
-    // Clean up the palette file
-    os.Remove(palette)
+	// Clean up the palette file
+	os.Remove(palette)
 
-    return nil
+	return nil
 }
 
 func main() {
 	gui := app.NewWithID("com.example.mp4togif")
 	window := gui.NewWindow("mp4 to gif")
-	window.Resize(fyne.NewSize(800,600))
+	window.Resize(fyne.NewSize(800, 600))
 
 	windowBackground := canvas.NewRectangle(color.RGBA{255, 0, 0, 0})
-	windowBackground.SetMinSize(fyne.NewSize(800,600))
+	windowBackground.SetMinSize(fyne.NewSize(800, 600))
 
 	contentBackground := canvas.NewRectangle(color.RGBA{255, 0, 0, 0})
-	contentBackground.SetMinSize(fyne.NewSize(600,220))
+	contentBackground.SetMinSize(fyne.NewSize(600, 220))
 	contentBackground.StrokeColor = color.RGBA{128, 128, 128, 255}
 	contentBackground.StrokeWidth = 1
 	contentBackground.CornerRadius = 10
@@ -108,18 +107,17 @@ func main() {
 	heading.Alignment = fyne.TextAlignCenter
 	heading.TextStyle = fyne.TextStyle{Bold: true}
 	heading.TextSize = 24
-	
+
 	spacer := canvas.NewRectangle(theme.BackgroundColor())
 	spacer.SetMinSize(fyne.NewSize(0, 10))
 
 	fileLabel := widget.NewLabel("No file selected")
 	fileLabel.Alignment = fyne.TextAlignCenter
 
-	//fileButton := widget.NewButton("Select File", func() {
 	fileButton := &widget.Button{
-		Text: "Select File",
+		Text:       "Select File",
 		Importance: widget.HighImportance,
-		OnTapped: func(){
+		OnTapped: func() {
 			fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 				if err != nil {
 					dialog.ShowError(err, window)
@@ -134,47 +132,99 @@ func main() {
 			fileDialog.Show()
 		},
 	}
-	
-	//loading := widget.NewActivity()
-	progressBar := widget.NewProgressBarInfinite()
-	progressBar.Stop()
 
-	var convertButton *widget.Button
-	
-	//convertButton = widget.NewButton("Convert file", func() {
+	progressBar := widget.NewProgressBar()
+	progressBar.Min = 0
+	progressBar.Max = 100
+	progressBar.SetValue(0)
+
+	var (
+		ctx              context.Context
+		cancel           context.CancelFunc
+		convertButton    *widget.Button
+		convertButtonState int
+	)
+
 	convertButton = &widget.Button{
-		Text: "Convert File",
+		Text:       "Convert File",
 		Importance: widget.HighImportance,
-		OnTapped: func(){
+		OnTapped: func() {
+			if convertButtonState == 1 { // If already converting, cancel it
+				cancel()
+				convertButton.SetText("Convert File")
+				convertButton.Importance = widget.HighImportance
+				convertButtonState = 0
+				return
+			}
+
 			if fileLabel.Text == "" || fileLabel.Text == "No file selected" {
 				dialog.ShowInformation("Error", "No file selected", window)
 				return
 			}
 
+			// Set up context with cancel function
+			ctx, cancel = context.WithCancel(context.Background())
+
 			inputFile := fileLabel.Text
 			outputFile := strings.TrimSuffix(inputFile, filepath.Ext(inputFile)) + ".gif"
-			
-			progressBar.Start()
-			progressBar.Refresh()
-			convertButton.Disable()
-			convertButton.SetText("Converting...")
-			//loading.Start()
-			//loading.Show()
+
+			progressBar.SetValue(0)
+			convertButton.SetText("Cancel")
+			convertButton.Importance = widget.DangerImportance
+			convertButtonState = 1
+
+			// Run the progress bar in a separate goroutine
 			go func() {
-				err := convertMP4ToGIF(inputFile, outputFile)
+				startTime := time.Now()
+				ticker := time.NewTicker(100 * time.Millisecond)
+				defer ticker.Stop()
+
+				fileInfo, err := os.Stat(inputFile)
 				if err != nil {
-					dialog.ShowError(err, window)
-					fmt.Println("Error converting file:", err)
-				} else {
-					dialog.ShowInformation("Conversion Successful", "The file has been successfully converted to GIF.", window)
-					fmt.Println("Conversion successful!")
+					fmt.Println("Error:", err)
+					return
 				}
-				//loading.Stop()
-				//loading.Hide()
-				progressBar.Stop()
-				convertButton.Enable()
-				convertButton.SetText("Convert file")
+				inputFileSize := fileInfo.Size()
+				estimatedTime := time.Duration(inputFileSize*30/22_000_000) * time.Second
+
+				for range ticker.C {
+					if convertButtonState == 0 {
+						progressBar.SetValue(0) // Reset if canceled
+						return
+					}
+
+					elapsed := time.Since(startTime)
+					progress := float64(elapsed) / float64(estimatedTime)
+					if progress >= 1.0 {
+						progressBar.SetValue(100)
+						break
+					}
+					progressBar.SetValue(progress * 100)
+				}
+			}()
+
+			// Run the conversion in another goroutine
+			go func() {
+				err := convertMP4ToGIF(ctx, inputFile, outputFile)
+
+				if err != nil {
+					// Check if the error is due to context cancellation
+					if ctx.Err() == context.Canceled {
+						dialog.ShowInformation("Conversion Canceled", "The conversion was canceled.", window)
+					} else {
+						dialog.ShowError(err, window) // Show other errors normally
+					}
+				} else {
+					convertButton.Importance = widget.HighImportance
+					dialog.ShowInformation("Conversion Successful", "The file has been successfully converted to GIF.", window)
+				}
+
+				// Reset UI elements
+				progressBar.SetValue(0)
+				convertButton.SetText("Convert File")
+				convertButton.Importance = widget.HighImportance
 				fileLabel.SetText("No file selected")
+				convertButtonState = 0
 			}()
 		},
 	}
@@ -187,7 +237,7 @@ func main() {
 			container.NewStack(
 				contentBackground,
 				container.NewVBox(
-					layout.NewSpacer(), // Add a spacer to push the content down
+					layout.NewSpacer(),
 					container.NewPadded(
 						container.NewVBox(
 							heading,
@@ -198,12 +248,12 @@ func main() {
 							progressBar,
 						),
 					),
-					layout.NewSpacer(), // Add another spacer to push the content up
+					layout.NewSpacer(),
 				),
 			),
 		),
 	)
 	window.SetContent(content)
 
-    window.ShowAndRun()
+	window.ShowAndRun()
 }
