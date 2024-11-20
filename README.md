@@ -4,7 +4,12 @@ It is written in Go and uses the Fyne GUI toolkit.
 
 ![Skärminspelning 2024-11-04 kl  18 37 19](https://github.com/user-attachments/assets/d9602ff0-ae4b-4fb9-88a3-01c7c3d84907)
 
-## Dependencies
+## Installation
+Feel free to try it out the application which can be downloaded from [latest release](https://github.com/carlbomsdata/mp4-to-gif/releases) for Windows, MacOS and Linux.
+
+## To setup development environment and build for your platform (optional)
+
+### Dependencies
 After cloning the repo, download and place ffmpeg executable inside the folder ffmpeg.
 https://www.ffmpeg.org/download.html
 
@@ -23,7 +28,7 @@ go mod tidy
 go get fyne.io/fyne/v2@latest
 ```
 
-## Package
+### Package
 ```bash
 go install fyne.io/fyne/v2/cmd/fyne@latest
 ```
